@@ -30,6 +30,28 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  private readonly aiRequests = new Counter({
+    name: 'ai_requests_total',
+    help: 'Total number of AI provider requests',
+    labelNames: ['provider', 'model', 'status'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly aiTokens = new Counter({
+    name: 'ai_tokens_total',
+    help: 'Total tokens consumed by AI provider requests',
+    labelNames: ['provider', 'model', 'type'] as const,
+    registers: [this.registry],
+  });
+
+  private readonly aiDuration = new Histogram({
+    name: 'ai_request_duration_seconds',
+    help: 'Duration of AI provider requests in seconds',
+    labelNames: ['provider', 'model', 'status'] as const,
+    buckets: [0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60],
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({ register: this.registry });
   }
@@ -44,6 +66,32 @@ export class MetricsService {
     const labels = { method, route, status_code: String(statusCode) };
     this.httpDuration.observe(labels, durationSeconds);
     this.httpTotal.inc(labels);
+  }
+
+  /** Record one AI provider request (success or failure) plus token usage. */
+  recordAiRequest(params: {
+    provider: string;
+    model: string;
+    status: 'success' | 'error';
+    durationSeconds: number;
+    inputTokens?: number;
+    outputTokens?: number;
+  }): void {
+    const { provider, model, status } = params;
+    this.aiRequests.inc({ provider, model, status });
+    this.aiDuration.observe(
+      { provider, model, status },
+      params.durationSeconds,
+    );
+    if (params.inputTokens) {
+      this.aiTokens.inc({ provider, model, type: 'input' }, params.inputTokens);
+    }
+    if (params.outputTokens) {
+      this.aiTokens.inc(
+        { provider, model, type: 'output' },
+        params.outputTokens,
+      );
+    }
   }
 
   /** Prometheus exposition text. */
