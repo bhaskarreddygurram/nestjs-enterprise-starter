@@ -9,6 +9,12 @@ A reusable, production-grade backend platform built with **NestJS + TypeScript +
 > ☁️ How to deploy (free PaaS, VPS, CloudPanel, native): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 > 📜 Release history: [`CHANGELOG.md`](CHANGELOG.md)
 
+## Architecture
+
+![System architecture: request pipeline (guards, interceptors, filters), feature modules including AI Insights calling the Claude API, core infrastructure (Prisma/PostgreSQL, Redis, Mail, Config), a cross-cutting observability band, and a CI/CD delivery strip to Docker/GHCR and Render](docs/architecture.svg)
+
+A layered NestJS modular monolith: every request flows through a global **pipeline** (JWT/RBAC/throttle guards → envelope/metrics interceptors → exception filter) into **feature modules** (controller → service → repository), backed by **core infrastructure** (Prisma/PostgreSQL, Redis, Mail, Joi-validated config). **Observability** (Pino logs, Prometheus metrics, Terminus health, graceful shutdown) is cross-cutting, and the **AI Insights** module calls Claude to analyse the audit log. Ships via a coverage-gated **CI/CD** pipeline to a Docker image and a live Render deployment.
+
 ## Status
 
 | Phase | Description | Status |
