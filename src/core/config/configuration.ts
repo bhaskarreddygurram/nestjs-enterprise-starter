@@ -55,6 +55,8 @@ export interface AppConfig {
   };
   log: {
     level: string;
+    toFile: boolean;
+    dir: string;
   };
   metrics: {
     enabled: boolean;
@@ -141,6 +143,8 @@ export default (): AppConfig => ({
   },
   log: {
     level: process.env.LOG_LEVEL ?? 'info',
+    toFile: (process.env.LOG_TO_FILE ?? 'false') === 'true',
+    dir: process.env.LOG_DIR ?? './logs',
   },
   metrics: {
     enabled: (process.env.METRICS_ENABLED ?? 'true') === 'true',

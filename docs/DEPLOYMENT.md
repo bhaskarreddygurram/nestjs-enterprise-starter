@@ -206,6 +206,48 @@ Then front it with Nginx + `certbot` (or Caddy) for TLS, reverse-proxying `:443 
 
 ---
 
+## Logs in production
+
+The app logs **structured JSON** (one object per line) via Pino. By default everything goes to **stdout/stderr** — the standard, recommended approach: the platform captures it for you.
+
+**Where to read them:**
+| Platform | How |
+|---|---|
+| Render | service → **Logs** tab (live tail + search) |
+| Docker Compose (VPS) | `docker compose logs -f app` |
+| systemd (native) | `journalctl -u enterprise-api -f` |
+| PM2 (native) | `pm2 logs api` |
+
+Each line includes a `reqId` (the same `x-request-id` returned to the client and used in the response envelope + audit trail), so you can trace one request across every log line it produced:
+```bash
+docker compose logs app | grep '"reqId":"<the-id>"'
+```
+Pretty-print JSON logs locally for reading: `... | npx pino-pretty`.
+
+**Writing logs to files (a folder on disk).** Set `LOG_TO_FILE=true` (optionally `LOG_DIR`, default `./logs`). The app then writes the same JSON lines to **`<LOG_DIR>/app.log`** *in addition to* stdout.
+
+```env
+LOG_TO_FILE=true
+LOG_DIR=/var/log/enterprise
+```
+
+Important caveats:
+- **PaaS (Render/Koyeb/Fly):** the container filesystem is **ephemeral** — files are lost on every restart/redeploy and aren't easy to download. On these platforms, **keep `LOG_TO_FILE=false`** and use the platform's log viewer (or ship stdout to a log service). File logging is meant for **VPS/self-hosted**.
+- **VPS:** point `LOG_DIR` at a real path (e.g. `/var/log/enterprise`) — with Docker, mount it as a volume (`-v /var/log/enterprise:/var/log/enterprise`) so logs survive container recreation.
+- **Rotation:** the file grows unbounded; rotate it with the OS **logrotate** (recommended) — e.g. `/etc/logrotate.d/enterprise`:
+  ```
+  /var/log/enterprise/app.log {
+      daily
+      rotate 14
+      compress
+      missingok
+      copytruncate
+  }
+  ```
+- **Don't commit logs:** `logs` / `*.log` are already git-ignored.
+
+> For real observability at scale, ship the JSON stdout to a log backend (Grafana Loki, ELK/OpenSearch, Datadog, Better Stack…) rather than scraping files — JSON + `reqId` makes those searchable out of the box.
+
 ## Production checklist
 
 - [ ] `NODE_ENV=production`, a unique strong `JWT_ACCESS_SECRET`
@@ -216,5 +258,6 @@ Then front it with Nginx + `certbot` (or Caddy) for TLS, reverse-proxying `:443 
 - [ ] Seeded once, then **admin password changed**
 - [ ] Real SMTP wired up if you rely on password-reset emails — set `MAIL_TRANSPORT=smtp` + `MAIL_HOST`/`MAIL_PORT`/`MAIL_USER`/`MAIL_PASSWORD`/`MAIL_FROM` (works with SendGrid, Mailgun, Postmark, Brevo, Amazon SES, Gmail, …). Default `console` just logs.
 - [ ] Postgres backups / persistent volume configured
+- [ ] Logs: rely on the platform's stdout capture (PaaS) **or** `LOG_TO_FILE=true` + a mounted `LOG_DIR` + logrotate (VPS)
 - [ ] `/metrics` reachable only by your scraper (network rule) if you consider it sensitive
 - [ ] HTTPS terminated by a reverse proxy (Caddy/Nginx) or the platform
