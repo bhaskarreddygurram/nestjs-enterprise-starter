@@ -59,6 +59,18 @@ export interface AppConfig {
   metrics: {
     enabled: boolean;
   };
+  ai: {
+    /** Master switch. When false (or no apiKey), AI endpoints return 503. */
+    enabled: boolean;
+    /** Anthropic API key. Absent → the noop provider is used. */
+    apiKey?: string;
+    /** Claude model id (e.g. claude-opus-4-8). */
+    model: string;
+    /** Hard cap on output tokens per request. */
+    maxTokens: number;
+    /** Request timeout in milliseconds. */
+    timeoutMs: number;
+  };
   security: {
     maxLoginAttempts: number;
     lockoutMinutes: number;
@@ -132,6 +144,16 @@ export default (): AppConfig => ({
   },
   metrics: {
     enabled: (process.env.METRICS_ENABLED ?? 'true') === 'true',
+  },
+  ai: {
+    // Enabled only when explicitly turned on AND an API key is present.
+    enabled:
+      (process.env.AI_ENABLED ?? 'false') === 'true' &&
+      Boolean(process.env.ANTHROPIC_API_KEY),
+    apiKey: process.env.ANTHROPIC_API_KEY || undefined,
+    model: process.env.AI_MODEL ?? 'claude-opus-4-8',
+    maxTokens: parseInt(process.env.AI_MAX_TOKENS ?? '2048', 10),
+    timeoutMs: parseInt(process.env.AI_TIMEOUT_MS ?? '30000', 10),
   },
   security: {
     maxLoginAttempts: parseInt(

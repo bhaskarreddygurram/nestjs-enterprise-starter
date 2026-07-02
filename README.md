@@ -26,6 +26,7 @@ A reusable, production-grade backend platform built with **NestJS + TypeScript +
 | 10 | Security Depth (2FA, password policy, lockout, reset) | ✅ Complete |
 | 11 | Observability & DevOps (Pino logs, metrics, Docker) | ✅ Complete |
 | 12 | CI/CD & Release (GitHub Actions, coverage gate, CHANGELOG) | ✅ Complete |
+| 13 | AI Security Insights (Claude-powered audit-log analysis) | ✅ Complete |
 
 ## Testing guides
 
@@ -46,6 +47,7 @@ Each phase has a hands-on testing guide in [`docs/`](docs) (Swagger + curl/Power
 | 10 | [Security Depth](docs/TESTING-PHASE-10-SECURITY-DEPTH.md) |
 | 11 | [Observability & DevOps](docs/TESTING-PHASE-11-OBSERVABILITY.md) |
 | 12 | [CI/CD & Release](docs/TESTING-PHASE-12-CICD.md) |
+| 13 | [AI Security Insights](docs/TESTING-PHASE-13-AI-INSIGHTS.md) |
 
 ## Tech Stack
 
@@ -112,6 +114,7 @@ The API boots at `http://localhost:8000/api`.
 | `GET /api/v1/notifications/unread-count` | 🔒 Bearer | Your unread count |
 | `PATCH /api/v1/notifications/:id/read` | 🔒 Bearer | Mark one read |
 | `POST /api/v1/notifications/read-all` | 🔒 Bearer | Mark all read |
+| `GET /api/v1/ai/security-insights` | 🔒 + `ai:read` | AI risk assessment over the recent audit log (503 when AI disabled) |
 | `GET /api/docs` | public | Swagger UI (use **Authorize** to send the token) |
 
 Seeded dev login: `admin@example.com` / `Admin123!ChangeMe` (role `admin`, all permissions).
@@ -139,6 +142,10 @@ Paginated lists put the array in `data` and pagination in `meta`. Health endpoin
 - **Metrics** — Prometheus exposition at **`GET /metrics`** (root path, un-enveloped): Node/process defaults plus `http_request_duration_seconds` + `http_requests_total`, labelled by method, route *pattern* and status.
 - **Graceful shutdown** — `enableShutdownHooks()` drains the DB/Redis connections on `SIGTERM`/`SIGINT`.
 - **Containerized** — multi-stage `Dockerfile` + an `app` service (opt-in `app` profile) in `docker-compose.yml`.
+
+**AI Security Insights (Phase 13):**
+- **What it does** — `GET /api/v1/ai/security-insights` feeds a bounded, recent slice of the audit trail to **Claude** (`claude-opus-4-8`) and returns a **structured** risk assessment: an overall `riskLevel`, a plain-English `summary`, and evidence-linked `findings` (each referencing the audit `action`s that support it). It surfaces anomalies like failed-login bursts, lockouts, and permission changes.
+- **Production-grade AI engineering** — the model is behind a DI adapter (`AI_PROVIDER`, mirroring `MAIL_PROVIDER`); **structured outputs** guarantee valid JSON (no regex scraping); token usage + latency are recorded into the **same Prometheus registry** (`ai_requests_total`, `ai_tokens_total`, `ai_request_duration_seconds`); the endpoint is throttled harder than the global limit; and it **fails closed** — off by default, `503` until `AI_ENABLED=true` **and** `ANTHROPIC_API_KEY` are set (validated at boot), with the empty-window path skipping the model entirely (no token spend).
 
 **Security depth (Phase 10):**
 - **Password policy** — a single `@IsStrongPassword()` decorator (8+ chars, upper/lower/digit/special) enforced on register, reset and change.
@@ -206,6 +213,11 @@ All configuration is validated at boot (`src/core/config/env.validation.ts`). Th
 | `TWO_FACTOR_CHALLENGE_TTL` | `5m` | 2FA challenge-token lifetime |
 | `LOG_LEVEL` | `info` | Pino level (`fatal`…`trace`, `silent`) |
 | `METRICS_ENABLED` | `true` | Expose `GET /metrics` |
+| `AI_ENABLED` | `false` | Enable AI endpoints (requires `ANTHROPIC_API_KEY`) |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key (required iff `AI_ENABLED=true`) |
+| `AI_MODEL` | `claude-opus-4-8` | Claude model id for insights |
+| `AI_MAX_TOKENS` | `2048` | Output-token cap per request |
+| `AI_TIMEOUT_MS` | `30000` | AI request timeout (ms) |
 
 ## License
 

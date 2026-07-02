@@ -70,6 +70,19 @@ export const envValidationSchema = Joi.object({
     .default('info'),
   METRICS_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
 
+  // AI (Phase 13): Claude-powered security insights over the audit log.
+  // Disabled by default; the endpoint returns 503 until AI_ENABLED=true AND
+  // ANTHROPIC_API_KEY is set. AI_ENABLED without a key is rejected at boot.
+  AI_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  ANTHROPIC_API_KEY: Joi.string().when('AI_ENABLED', {
+    is: true,
+    then: Joi.required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  AI_MODEL: Joi.string().default('claude-opus-4-8'),
+  AI_MAX_TOKENS: Joi.number().integer().min(256).default(2048),
+  AI_TIMEOUT_MS: Joi.number().integer().min(1000).default(30000),
+
   // Security depth (Phase 10): lockout, password reset, 2FA
   SECURITY_MAX_LOGIN_ATTEMPTS: Joi.number().integer().min(1).default(5),
   SECURITY_LOCKOUT_MINUTES: Joi.number().integer().min(1).default(15),

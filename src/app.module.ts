@@ -16,6 +16,7 @@ import { MetricsModule } from './core/metrics/metrics.module';
 import { PrismaModule } from './core/database/prisma.module';
 import { RedisModule } from './core/redis/redis.module';
 import { HealthModule } from './core/health/health.module';
+import { AiModule } from './modules/ai/ai.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FilesModule } from './modules/files/files.module';
@@ -77,6 +78,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     FilesModule,
     NotificationsModule,
+    AiModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
