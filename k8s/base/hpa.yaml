@@ -1,0 +1,21 @@
+# Horizontal Pod Autoscaler: scale the API 2→6 Pods based on CPU. Replay the
+# k6 load test and watch `kubectl -n enterprise get hpa -w` add Pods live.
+# Requires metrics-server in the cluster (see the testing guide).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nestjs-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nestjs-api
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

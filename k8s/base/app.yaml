@@ -1,0 +1,90 @@
+# The NestJS API: a stateless Deployment (2 replicas) fronted by a ClusterIP
+# Service. Because the app is 12-factor (stateless, config via env, health
+# endpoints, graceful shutdown on SIGTERM), Kubernetes can freely reschedule,
+# scale, and roll it with zero downtime.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nestjs-api
+  labels:
+    app.kubernetes.io/name: nestjs-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nestjs-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0 # keep full capacity during a rollout
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nestjs-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # the `node` user baked into the image
+        fsGroup: 1000
+      # Migrations run ONCE here, before the app container starts — not in the
+      # app's CMD. `prisma migrate deploy` takes an advisory lock, so it is safe
+      # even if multiple Pods start together. The loop also waits for Postgres.
+      initContainers:
+        - name: migrate
+          image: ghcr.io/bhaskarreddygurram/nestjs-enterprise-starter:latest
+          command:
+            - sh
+            - -c
+            - 'until npx prisma migrate deploy; do echo "waiting for db..."; sleep 3; done'
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: app-secret }
+      containers:
+        - name: nestjs-api
+          image: ghcr.io/bhaskarreddygurram/nestjs-enterprise-starter:latest
+          # Override the image CMD (which also migrates) — just run the server.
+          command: ['node', 'dist/main.js']
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: app-secret }
+          # Liveness: is the process up? Readiness: are Postgres + Redis reachable?
+          # (readiness gates traffic; a failing dependency takes the Pod out of
+          # the Service without killing it.)
+          startupProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            failureThreshold: 30
+            periodSeconds: 3
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /api/v1/health/readiness, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: '100m', memory: '160Mi' }
+            limits: { cpu: '500m', memory: '320Mi' }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nestjs-api
+  labels:
+    app.kubernetes.io/name: nestjs-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nestjs-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

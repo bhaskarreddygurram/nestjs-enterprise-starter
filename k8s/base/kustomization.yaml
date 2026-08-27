@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Everything lands in the `enterprise` namespace.
+namespace: enterprise
+
+# A common label on every object (does NOT touch immutable selectors).
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: enterprise-backend
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - postgres.yaml
+  - redis.yaml
+  - app.yaml
+  - ingress.yaml
+  - hpa.yaml
