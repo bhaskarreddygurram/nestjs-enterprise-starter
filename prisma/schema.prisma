@@ -41,6 +41,7 @@ model User {
   notifications       Notification[]
   passwordResetTokens PasswordResetToken[]
   recoveryCodes       TwoFactorRecoveryCode[]
+  ownedProjects       Project[]               @relation("ProjectOwner")
 
   @@index([email])
   @@map("users")
@@ -198,4 +199,60 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// A unit of work owned by one user. Soft-deleted; `code` is a permanent
+/// business key and is never reissued. `version` backs optimistic locking.
+/// The trigram indexes serve case-insensitive `contains` search; the
+/// pg_trgm extension and the date CHECK constraint live in the migration SQL.
+model Project {
+  id          String          @id @default(uuid()) @db.Uuid
+  code        String          @unique @db.VarChar(20)
+  name        String          @db.VarChar(150)
+  description String?         @db.Text
+  status      ProjectStatus   @default(PLANNING)
+  priority    ProjectPriority @default(MEDIUM)
+
+  startDate   DateTime? @map("start_date") @db.Date
+  dueDate     DateTime? @map("due_date") @db.Date
+  completedAt DateTime? @map("completed_at")
+
+  budget   Decimal? @db.Decimal(14, 2)
+  currency String?  @db.Char(3)
+
+  ownerId String @map("owner_id") @db.Uuid
+  version Int    @default(1)
+
+  // provenance — plain ids, no FK, so they survive the actor's removal
+  createdById String?   @map("created_by_id") @db.Uuid
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  deletedById String?   @map("deleted_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  owner User @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([createdAt])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("projects")
 }
