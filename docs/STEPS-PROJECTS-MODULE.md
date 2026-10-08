@@ -159,10 +159,12 @@ query syntax.
 
 - `ProjectFilter` — `search?`, `statuses?`, `priorities?`, `ownerId?`,
   `dueFrom?`, `dueTo?`, `deleted: 'exclude' | 'only'`
-- `PageRequest` — `skip`, `take`, `sort`
-- `Page<T>` — `items`, `total`
+- `NewProject`, `ProjectChanges` — what the repository needs for a write
 - `ProjectWithOwner` — the entity plus the owner summary the response needs
 - `PROJECT_SORTABLE_FIELDS`
+
+The generic `PageRequest` (`skip`, `take`, `sort`) and `Page<T>` (`items`,
+`total`) go in `src/common/types/page.types.ts`, since every module reuses them.
 
 **Concept.** This file is the boundary. The service speaks in these types; only
 the repository translates them into `where` / `orderBy`.

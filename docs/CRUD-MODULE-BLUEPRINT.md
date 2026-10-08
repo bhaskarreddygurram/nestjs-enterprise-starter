@@ -49,7 +49,8 @@ src/modules/<entity>/
   <entity>.service.ts
   <entity>.service.spec.ts
   <entity>.repository.ts
-  <entity>.types.ts            domain filter + page types (no Prisma imports)
+  <entity>.types.ts            domain filter, sortable fields, write shapes
+                               (entity/enum types only — no `Prisma.*` inputs)
   dto/
     create-<entity>.dto.ts
     update-<entity>.dto.ts     PartialType of create, minus immutable fields
@@ -58,6 +59,9 @@ src/modules/<entity>/
 test/<entity>.e2e-spec.ts
 docs/TESTING-PHASE-<n>-<ENTITY>.md
 ```
+
+`PageRequest` and `Page<T>` are shared by every module and live in
+`src/common/types/page.types.ts`.
 
 ---
 
