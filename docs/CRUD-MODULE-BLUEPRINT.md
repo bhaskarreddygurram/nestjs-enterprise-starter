@@ -131,9 +131,11 @@ docs/TESTING-PHASE-<n>-<ENTITY>.md
    `P2002` → 409, `P2025` → 404, `P2003` → 409. A pre-check may stay for a
    friendlier message but is never the only protection.
 2. **Optimistic concurrency.** `PATCH` carries the `version` the client last
-   read. The repository updates `where: { id, version, deletedAt: null }` and
-   increments `version`; no row matched means either 404 or a stale version
-   (409), which the service distinguishes with one follow-up read.
+   read. The repository runs one `update` with
+   `where: { id, version, deletedAt: null }` and increments `version`. It
+   catches Prisma's `P2025` and returns `null`; no row matched means either 404
+   or a stale version (409), which the service distinguishes with one follow-up
+   read. Soft delete and restore use the same conditional-write helper.
 3. **Page queries live in the repository.** **Changed** — `findPage(filter,
    page)` returns `{ items, total }`, so the service no longer orchestrates two
    queries.

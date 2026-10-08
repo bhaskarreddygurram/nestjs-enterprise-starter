@@ -213,12 +213,17 @@ whether the index is usable.
 
 - `create(data)` — plain insert; a duplicate `code` throws `P2002` (handled by
   Step 1).
-- `update(id, version, data)` — `updateMany` with
-  `where: { id, version, deletedAt: null }` and `version: { increment: 1 }`;
-  returns the updated row or `null` when no row matched.
+- `update(id, expectedVersion, changes)` — a single `update` whose `where` is
+  `{ id, version, deletedAt: null }`; returns the updated row or `null` when
+  no row matched.
 - `softDelete(id, actorId)` — stamps `deletedAt` and `deletedById`, only where
   `deletedAt` is null.
-- `restore(id)` — clears both, only where `deletedAt` is not null.
+- `restore(id, actorId)` — clears both, only where `deletedAt` is not null.
+
+All three go through one private helper. Prisma's `update` accepts extra
+non-unique fields next to the unique `id`, so the guard and the write are one
+SQL statement; its "no row matched" error (`P2025`) is caught there and
+returned as `null`. Every state change increments `version`.
 
 **Concept.** Optimistic locking is a conditional write: the `WHERE` clause is
 the lock. "Zero rows affected" is a result to interpret, not an error.

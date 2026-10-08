@@ -4,6 +4,8 @@ import { Page, PageRequest } from '../../common/types/page.types';
 import { PrismaService } from '../../core/database/prisma.service';
 import {
   DeletedScope,
+  NewProject,
+  ProjectChanges,
   ProjectFilter,
   ProjectSortField,
   ProjectWithOwner,
@@ -27,6 +29,11 @@ const NULLABLE_SORT_FIELDS: ReadonlySet<ProjectSortField> = new Set([
  *
  * Soft-delete convention: the `deletedAt` condition is written once, in
  * `deletedScope`, and every read goes through it.
+ *
+ * Write convention: a write that depends on the row's current state puts that
+ * state in its `where`, so the check and the change are one atomic statement.
+ * "No row matched" is returned as `null`, never thrown — the service decides
+ * what it means. Every state change increments `version`.
  */
 @Injectable()
 export class ProjectsRepository {
@@ -64,8 +71,73 @@ export class ProjectsRepository {
     });
   }
 
+  /** A duplicate `code` surfaces as Prisma P2002, mapped to 409 by the filter. */
+  create(data: NewProject): Promise<ProjectWithOwner> {
+    return this.prisma.project.create({ data, include: WITH_OWNER });
+  }
+
+  /**
+   * Optimistic-locking update: applies only if the row is live and still at
+   * `expectedVersion`. Returns `null` when nothing matched (missing, deleted,
+   * or changed by someone else since it was read).
+   */
+  update(
+    id: string,
+    expectedVersion: number,
+    changes: ProjectChanges,
+  ): Promise<ProjectWithOwner | null> {
+    return this.writeIfMatched(
+      { id, version: expectedVersion, ...this.deletedScope('exclude') },
+      changes,
+    );
+  }
+
+  /** Stamps a live row as deleted. `null` if it is missing or already deleted. */
+  softDelete(id: string, actorId: string): Promise<ProjectWithOwner | null> {
+    return this.writeIfMatched(
+      { id, ...this.deletedScope('exclude') },
+      { deletedAt: new Date(), deletedById: actorId },
+    );
+  }
+
+  /** Brings a deleted row back. `null` if it is missing or not deleted. */
+  restore(id: string, actorId: string): Promise<ProjectWithOwner | null> {
+    return this.writeIfMatched(
+      { id, ...this.deletedScope('only') },
+      { deletedAt: null, deletedById: null, updatedById: actorId },
+    );
+  }
+
+  /**
+   * One conditional UPDATE: the extra `where` fields ride along with the
+   * unique `id`, so the guard and the write cannot be separated by another
+   * request. Prisma reports "no row matched" as P2025, translated to `null`.
+   */
+  private async writeIfMatched(
+    where: Prisma.ProjectWhereUniqueInput,
+    data: Prisma.ProjectUncheckedUpdateInput,
+  ): Promise<ProjectWithOwner | null> {
+    try {
+      return await this.prisma.project.update({
+        where,
+        data: { ...data, version: { increment: 1 } },
+        include: WITH_OWNER,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   /** The single definition of what "deleted" means for a query. */
-  private deletedScope(deleted: DeletedScope): Prisma.ProjectWhereInput {
+  private deletedScope(
+    deleted: DeletedScope,
+  ): Pick<Prisma.ProjectWhereInput, 'deletedAt'> {
     return deleted === 'only'
       ? { deletedAt: { not: null } }
       : { deletedAt: null };
