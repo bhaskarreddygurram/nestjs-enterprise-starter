@@ -147,7 +147,12 @@ docs/TESTING-PHASE-<n>-<ENTITY>.md
    that migration file by hand. Never edit an applied migration.
 7. **Search performance.** `contains` + `mode: 'insensitive'` compiles to
    `ILIKE '%term%'`, which a B-tree index cannot serve. Text columns that are
-   searched get a `pg_trgm` GIN index, declared in the schema.
+   searched get a `pg_trgm` GIN index, declared in the schema. **Every**
+   column in the search `OR` needs one — a single un-indexed arm forces a
+   sequential scan. Confirm with `EXPLAIN` (`SET enable_seqscan = off` on a
+   small table) that the plan is a `BitmapOr` over the indexes.
+8. **Sorting.** Nullable sort columns order `nulls: 'last'` in both
+   directions, and `id` is appended as a tie-breaker so offset pages are stable.
 
 ---
 

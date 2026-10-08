@@ -252,6 +252,9 @@ model Project {
   @@index([status])
   @@index([dueDate])
   @@index([createdAt])
+  // search ORs code, name and description: every arm needs its own trigram
+  // index, or the planner falls back to a sequential scan
+  @@index([code(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("projects")

@@ -82,6 +82,7 @@ model Project {
   @@index([status])
   @@index([dueDate])
   @@index([createdAt])
+  @@index([code(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("projects")
@@ -94,8 +95,9 @@ Design notes:
 
 - **`code`** — the human-facing key (`CRM-2026`, `WEB-REDESIGN`). Supplied by
   the client, validated as `^[A-Z][A-Z0-9-]{1,19}$`, immutable after creation.
-  `code` already has a B-tree index from `@unique`, which serves exact and
-  prefix lookups.
+  The B-tree index from `@unique` serves exact lookups only, so `code` also
+  gets a trigram index: search ORs `code`, `name` and `description`, and one
+  arm without a usable index makes PostgreSQL scan the whole table.
 - **`owner` uses `Restrict`** — users are soft-deleted, so the row always
   exists; `Restrict` only blocks a hard delete that would orphan projects.
 - **`completedAt`** is set by the service when status becomes `COMPLETED` and
