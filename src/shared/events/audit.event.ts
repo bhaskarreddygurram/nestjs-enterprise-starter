@@ -22,6 +22,10 @@ export const AuditAction = {
   ROLE_REMOVED: 'role.removed',
   FILE_UPLOADED: 'file.uploaded',
   FILE_DELETED: 'file.deleted',
+  PROJECT_CREATED: 'project.created',
+  PROJECT_UPDATED: 'project.updated',
+  PROJECT_DELETED: 'project.deleted',
+  PROJECT_RESTORED: 'project.restored',
 } as const;
 
 export type AuditActionValue = (typeof AuditAction)[keyof typeof AuditAction];

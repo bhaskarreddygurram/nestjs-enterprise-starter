@@ -122,6 +122,11 @@ export class UsersService {
     });
   }
 
+  /** Whether a live (not soft-deleted) user with this id exists. */
+  async exists(id: string): Promise<boolean> {
+    return (await this.usersRepository.findById(id)) !== null;
+  }
+
   // --- Internal, for the Auth module only --------------------------------
   // These return the raw entity (including passwordHash) and must never be
   // surfaced through an HTTP response. Auth uses them to verify credentials
