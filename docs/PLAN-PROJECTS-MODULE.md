@@ -1,7 +1,9 @@
 # Plan — Projects Module (Phase 15)
 
 Applies the [CRUD Module Blueprint](CRUD-MODULE-BLUEPRINT.md) to the first
-business entity. Status: **plan only — nothing implemented yet.**
+business entity. Status: **implemented** — see
+[`TESTING-PHASE-15-PROJECTS.md`](TESTING-PHASE-15-PROJECTS.md). The decisions in §8
+were built with their stated defaults.
 
 (Phase 14 is Kubernetes, still open as PR #5.)
 

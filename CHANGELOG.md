@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **Phase 15 — Projects Module.** Six routes under `/api/v1/projects` (list,
+  get, create, update, soft-delete, restore) with search across code, name and
+  description, typed filters, whitelisted sort and pagination; optimistic
+  locking through a `version` column; `project:*` permissions and `project.*`
+  audit events. Built to the new `docs/CRUD-MODULE-BLUEPRINT.md`.
+- `GlobalExceptionFilter` maps Prisma `P2002` / `P2025` / `P2003` to
+  `409` / `404` / `409`.
+- Shared `PageRequest` / `Page<T>` types, `IsOptionalNotNull` validator and
+  date-only helpers in `src/common`.
+
+### Changed
+
+- A unique- or foreign-key violation that previously surfaced as a `500` now
+  returns `409` in every module.
+- Jest runs at 50% of cores (unit and e2e) to stop out-of-memory worker crashes.
+
+### Migration notes
+
+- Requires the `pg_trgm` PostgreSQL extension (created by the migration).
+- Re-run `npm run db:seed` so the admin role receives the `project:*`
+  permissions.
 
 ## [0.1.0] — 2026-06-23
 
