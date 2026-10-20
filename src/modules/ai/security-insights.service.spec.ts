@@ -91,7 +91,7 @@ describe('SecurityInsightsService', () => {
       expect.objectContaining({
         skip: 0,
         take: 100,
-        where: { createdAt: { gte: expect.any(Date) } },
+        where: { createdAt: { gte: expect.any(Date) as Date } },
       }),
     );
     // events are flattened to summaries (ISO string dates) before the AI call
@@ -103,7 +103,7 @@ describe('SecurityInsightsService', () => {
             action: 'auth.login.failed',
             createdAt: '2026-07-02T10:00:00.000Z',
           }),
-        ]),
+        ]) as unknown,
       }),
     );
     expect(result.analyzed).toBe(true);
