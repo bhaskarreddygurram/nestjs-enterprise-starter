@@ -4,6 +4,7 @@ import {
   ConflictException,
   HttpException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
 describe('GlobalExceptionFilter', () => {
@@ -76,6 +77,83 @@ describe('GlobalExceptionFilter', () => {
     };
     expect(payload.message).toBe('Internal server error');
     expect(payload.errorCode).toBe('INTERNAL_ERROR');
+  });
+
+  describe('Prisma errors', () => {
+    const prismaError = (
+      code: string,
+      meta?: Record<string, unknown>,
+    ): Prisma.PrismaClientKnownRequestError =>
+      new Prisma.PrismaClientKnownRequestError('raw query detail', {
+        code,
+        clientVersion: 'test',
+        meta,
+      });
+
+    const payloadOf = (): {
+      statusCode: number;
+      message: string;
+      errorCode: string;
+    } =>
+      jsonMock.mock.calls[0][0] as {
+        statusCode: number;
+        message: string;
+        errorCode: string;
+      };
+
+    it('maps P2002 (unique constraint) to 409 naming the field', () => {
+      filter.catch(prismaError('P2002', { target: ['code'] }), hostFor());
+
+      expect(statusMock).toHaveBeenCalledWith(409);
+      expect(payloadOf()).toMatchObject({
+        statusCode: 409,
+        errorCode: 'CONFLICT',
+        message: 'A record with this code already exists',
+      });
+    });
+
+    it('maps P2002 without a field list to a generic 409', () => {
+      filter.catch(prismaError('P2002'), hostFor());
+
+      expect(payloadOf()).toMatchObject({
+        statusCode: 409,
+        message: 'A record with these values already exists',
+      });
+    });
+
+    it('maps P2025 (record not found) to 404', () => {
+      filter.catch(prismaError('P2025'), hostFor());
+
+      expect(statusMock).toHaveBeenCalledWith(404);
+      expect(payloadOf()).toMatchObject({
+        errorCode: 'NOT_FOUND',
+        message: 'Resource not found',
+      });
+    });
+
+    it('maps P2003 (foreign key constraint) to 409', () => {
+      filter.catch(prismaError('P2003'), hostFor());
+
+      expect(statusMock).toHaveBeenCalledWith(409);
+      expect(payloadOf().errorCode).toBe('CONFLICT');
+    });
+
+    it('leaves an unmapped Prisma code as a 500', () => {
+      filter.catch(prismaError('P2034'), hostFor());
+
+      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(payloadOf()).toMatchObject({
+        errorCode: 'INTERNAL_ERROR',
+        message: 'Internal server error',
+      });
+    });
+
+    it('never returns the raw Prisma message', () => {
+      for (const code of ['P2002', 'P2025', 'P2003', 'P2034']) {
+        filter.catch(prismaError(code), hostFor());
+        expect(payloadOf().message).not.toContain('raw query detail');
+      }
+    });
   });
 
   it('maps a generic HttpException status to a code', () => {

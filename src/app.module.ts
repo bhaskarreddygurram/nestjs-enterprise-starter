@@ -21,6 +21,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FilesModule } from './modules/files/files.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -79,6 +80,7 @@ import { UsersModule } from './modules/users/users.module';
     FilesModule,
     NotificationsModule,
     AiModule,
+    ProjectsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AppThrottlerGuard },

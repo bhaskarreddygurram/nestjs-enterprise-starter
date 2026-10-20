@@ -152,6 +152,16 @@ describe('UsersService', () => {
     });
   });
 
+  describe('exists', () => {
+    it('is true for a live user and false otherwise', async () => {
+      repository.findById.mockResolvedValueOnce(mockUser);
+      await expect(service.exists(mockUser.id)).resolves.toBe(true);
+
+      repository.findById.mockResolvedValueOnce(null);
+      await expect(service.exists('missing-id')).resolves.toBe(false);
+    });
+  });
+
   describe('update', () => {
     it('throws 404 when the user does not exist', async () => {
       repository.findById.mockResolvedValue(null);
