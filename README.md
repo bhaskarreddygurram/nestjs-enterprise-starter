@@ -33,6 +33,7 @@ A layered NestJS modular monolith: every request flows through a global **pipeli
 | 11 | Observability & DevOps (Pino logs, metrics, Docker) | ✅ Complete |
 | 12 | CI/CD & Release (GitHub Actions, coverage gate, CHANGELOG) | ✅ Complete |
 | 13 | AI Security Insights (Claude-powered audit-log analysis) | ✅ Complete |
+| 14 | Kubernetes (Kustomize manifests, HPA, local cluster) | ✅ Complete |
 
 ## Testing guides
 
@@ -54,6 +55,7 @@ Each phase has a hands-on testing guide in [`docs/`](docs) (Swagger + curl/Power
 | 11 | [Observability & DevOps](docs/TESTING-PHASE-11-OBSERVABILITY.md) |
 | 12 | [CI/CD & Release](docs/TESTING-PHASE-12-CICD.md) |
 | 13 | [AI Security Insights](docs/TESTING-PHASE-13-AI-INSIGHTS.md) |
+| 14 | [Kubernetes (local)](docs/TESTING-PHASE-14-KUBERNETES.md) |
 
 ## Tech Stack
 
@@ -152,6 +154,10 @@ Paginated lists put the array in `data` and pagination in `meta`. Health endpoin
 **AI Security Insights (Phase 13):**
 - **What it does** — `GET /api/v1/ai/security-insights` feeds a bounded, recent slice of the audit trail to **Claude** (`claude-opus-4-8`) and returns a **structured** risk assessment: an overall `riskLevel`, a plain-English `summary`, and evidence-linked `findings` (each referencing the audit `action`s that support it). It surfaces anomalies like failed-login bursts, lockouts, and permission changes.
 - **Production-grade AI engineering** — the model is behind a DI adapter (`AI_PROVIDER`, mirroring `MAIL_PROVIDER`); **structured outputs** guarantee valid JSON (no regex scraping); token usage + latency are recorded into the **same Prometheus registry** (`ai_requests_total`, `ai_tokens_total`, `ai_request_duration_seconds`); the endpoint is throttled harder than the global limit; and it **fails closed** — off by default, `503` until `AI_ENABLED=true` **and** `ANTHROPIC_API_KEY` are set (validated at boot), with the empty-window path skipping the model entirely (no token spend).
+
+**Kubernetes (Phase 14):**
+- **Self-contained local stack** in [`k8s/`](k8s) via **Kustomize** (base + `dev`/`prod` overlays): the API as a 2-replica **Deployment** + **Service**, Postgres & Redis as **StatefulSets** with PVCs, **ConfigMap**/**Secret** for env, an **Ingress**, and a **HorizontalPodAutoscaler**. Deploy with `kubectl apply -k k8s/base`.
+- **K8s-native by design** — the app's existing **liveness/readiness probes** (`/api/v1/health` + `/api/v1/health/readiness`), **graceful shutdown** (zero-downtime rolling updates), stateless design, and env-based config map straight onto Kubernetes primitives. Prisma **migrations run once in an initContainer**, not per-replica. See [`docs/TESTING-PHASE-14-KUBERNETES.md`](docs/TESTING-PHASE-14-KUBERNETES.md) for self-healing, rolling-update, and autoscaling demos.
 
 **Security depth (Phase 10):**
 - **Password policy** — a single `@IsStrongPassword()` decorator (8+ chars, upper/lower/digit/special) enforced on register, reset and change.

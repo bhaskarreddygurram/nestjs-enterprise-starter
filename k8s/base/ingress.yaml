@@ -1,0 +1,23 @@
+# HTTP entry point into the cluster. Requires an ingress controller
+# (e.g. ingress-nginx). Map the host locally by adding to your hosts file:
+#   127.0.0.1  enterprise.local
+# then browse http://enterprise.local/api/docs
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nestjs-api
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: enterprise.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nestjs-api
+                port:
+                  number: 8000

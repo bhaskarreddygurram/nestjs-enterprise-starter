@@ -1,0 +1,20 @@
+# Non-secret application config. Mounted as env vars into the app Pods.
+# In-cluster service discovery: the app reaches Postgres/Redis by their
+# Service names (`postgres`, `redis`) — Kubernetes DNS resolves them.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  NODE_ENV: 'production'
+  PORT: '8000'
+  API_PREFIX: 'api'
+  API_VERSION: 'v1'
+  SWAGGER_ENABLED: 'true'
+  LOG_LEVEL: 'info'
+  METRICS_ENABLED: 'true'
+  # Discrete Redis fields (the app also accepts REDIS_URL).
+  REDIS_HOST: 'redis'
+  REDIS_PORT: '6379'
+  # AI is off by default; flip to 'true' AND set ANTHROPIC_API_KEY in the Secret.
+  AI_ENABLED: 'false'
