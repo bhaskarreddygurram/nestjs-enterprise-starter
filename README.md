@@ -33,6 +33,7 @@ A layered NestJS modular monolith: every request flows through a global **pipeli
 | 11 | Observability & DevOps (Pino logs, metrics, Docker) | ✅ Complete |
 | 12 | CI/CD & Release (GitHub Actions, coverage gate, CHANGELOG) | ✅ Complete |
 | 13 | AI Security Insights (Claude-powered audit-log analysis) | ✅ Complete |
+| 15 | Projects Module (blueprint CRUD: search, optimistic locking, soft delete + restore) | ✅ Complete |
 
 ## Testing guides
 
@@ -54,6 +55,7 @@ Each phase has a hands-on testing guide in [`docs/`](docs) (Swagger + curl/Power
 | 11 | [Observability & DevOps](docs/TESTING-PHASE-11-OBSERVABILITY.md) |
 | 12 | [CI/CD & Release](docs/TESTING-PHASE-12-CICD.md) |
 | 13 | [AI Security Insights](docs/TESTING-PHASE-13-AI-INSIGHTS.md) |
+| 15 | [Projects Module](docs/TESTING-PHASE-15-PROJECTS.md) |
 
 ## Tech Stack
 
@@ -121,6 +123,12 @@ The API boots at `http://localhost:8000/api`.
 | `PATCH /api/v1/notifications/:id/read` | 🔒 Bearer | Mark one read |
 | `POST /api/v1/notifications/read-all` | 🔒 Bearer | Mark all read |
 | `GET /api/v1/ai/security-insights` | 🔒 + `ai:read` | AI risk assessment over the recent audit log (503 when AI disabled) |
+| `GET /api/v1/projects` | 🔒 + `project:read` | List projects — search, filters, sort, pagination (`deleted=only` also needs `project:restore`) |
+| `GET /api/v1/projects/:id` | 🔒 + `project:read` | Get a project |
+| `POST /api/v1/projects` | 🔒 + `project:create` | Create a project (409 on duplicate `code`) |
+| `PATCH /api/v1/projects/:id` | 🔒 + `project:update` | Update with optimistic locking (409 on stale `version`) |
+| `DELETE /api/v1/projects/:id` | 🔒 + `project:delete` | Soft-delete a project |
+| `POST /api/v1/projects/:id/restore` | 🔒 + `project:restore` | Restore a soft-deleted project |
 | `GET /api/docs` | public | Swagger UI (use **Authorize** to send the token) |
 
 Seeded dev login: `admin@example.com` / `Admin123!ChangeMe` (role `admin`, all permissions).
@@ -152,6 +160,13 @@ Paginated lists put the array in `data` and pagination in `meta`. Health endpoin
 **AI Security Insights (Phase 13):**
 - **What it does** — `GET /api/v1/ai/security-insights` feeds a bounded, recent slice of the audit trail to **Claude** (`claude-opus-4-8`) and returns a **structured** risk assessment: an overall `riskLevel`, a plain-English `summary`, and evidence-linked `findings` (each referencing the audit `action`s that support it). It surfaces anomalies like failed-login bursts, lockouts, and permission changes.
 - **Production-grade AI engineering** — the model is behind a DI adapter (`AI_PROVIDER`, mirroring `MAIL_PROVIDER`); **structured outputs** guarantee valid JSON (no regex scraping); token usage + latency are recorded into the **same Prometheus registry** (`ai_requests_total`, `ai_tokens_total`, `ai_request_duration_seconds`); the endpoint is throttled harder than the global limit; and it **fails closed** — off by default, `503` until `AI_ENABLED=true` **and** `ANTHROPIC_API_KEY` are set (validated at boot), with the empty-window path skipping the model entirely (no token spend).
+
+**Projects module (Phase 15):**
+- **A reusable CRUD standard** — the first business entity, built to [`docs/CRUD-MODULE-BLUEPRINT.md`](docs/CRUD-MODULE-BLUEPRINT.md), which every later module follows. The service holds the rules and never builds a query; the repository is the only Prisma importer.
+- **Optimistic locking** — `PATCH` sends the `version` it read and the update is one conditional `UPDATE … WHERE id AND version`; a concurrent edit returns `409` instead of silently overwriting.
+- **The database as the guard** — uniqueness of `code` is left to the constraint, and the global exception filter maps Prisma `P2002` / `P2025` / `P2003` to `409` / `404` / `409` for every module. A `CHECK` constraint backs the date rule.
+- **Indexed search** — `search` spans `code`, `name` and `description` using `pg_trgm` GIN indexes (one per column, so the `OR` stays a bitmap index scan), with typed filters for status, priority, owner and due-date range.
+- **Soft delete + restore** — deleted rows keep their `code` reserved, are listed with `deleted=only`, and come back through `POST /projects/:id/restore`.
 
 **Security depth (Phase 10):**
 - **Password policy** — a single `@IsStrongPassword()` decorator (8+ chars, upper/lower/digit/special) enforced on register, reset and change.
